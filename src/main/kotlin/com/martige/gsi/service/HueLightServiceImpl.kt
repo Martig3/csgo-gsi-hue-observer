@@ -3,20 +3,15 @@ package com.martige.gsi.service
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
 import com.martige.gsi.model.GameStateModel
-import org.springframework.beans.factory.annotation.Value
-import org.springframework.boot.context.properties.ConfigurationProperties
-import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestTemplate
 
 @Service
-@Configuration
 class HueLightServiceImpl : HueLightService {
 
-    @Value("lightservice.url")
-    val hueLightUrl = ""
-    @Value("lightservice.user")
-    val hueUser = ""
+    //TODO: create properties to set these through args
+    val hueLightUrl = "http://192.168.1.2"
+    val hueUser = "BOiEsc0sFNSWan1IAalU9V0b5-08Z8kFPbjBNvbL"
 
     override fun updateLighting(gameState: GameStateModel) {
         var roundPhase = "NONE"
