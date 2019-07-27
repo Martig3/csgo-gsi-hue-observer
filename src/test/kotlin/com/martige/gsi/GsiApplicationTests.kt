@@ -1,15 +1,24 @@
 package com.martige.gsi
 
-import com.martige.gsi.service.WinTeam
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.test.context.TestPropertySource
 import org.springframework.test.context.junit4.SpringRunner
 import org.springframework.web.client.RestTemplate
 
 @RunWith(SpringRunner::class)
 @SpringBootTest
+@TestPropertySource(locations = ["classpath:gsi-test.properties"])
 class GsiApplicationTests {
+
+    @Value("\${lightservice.hueControllerUrl}")
+    lateinit var hueControllerUrl: String
+    @Value("\${lightservice.hueUser}")
+    lateinit var hueUser: String
+    @Value("\${lightservice.hueLightUrl}")
+    lateinit var hueLightUrl: String
 
 	@Test
 	fun contextLoads() {
@@ -26,7 +35,7 @@ class GsiApplicationTests {
                 "    \"transitiontime\": 4\n" +
                 "}\n" +
                 "\t "
-        restTemplate.put("http://192.168.1.2/api/BOiEsc0sFNSWan1IAalU9V0b5-08Z8kFPbjBNvbL/lights/1/state", request)
+        restTemplate.put("${this.hueControllerUrl}/api/${this.hueUser}/${this.hueLightUrl}", request)
     }
 
     @Test
@@ -39,7 +48,8 @@ class GsiApplicationTests {
                 "    \"hue\": 0,\n" +
                 "    \"transitiontime\": 4\n" +
                 "}"
-        restTemplate.put("http://192.168.1.2/api/BOiEsc0sFNSWan1IAalU9V0b5-08Z8kFPbjBNvbL/lights/1/state", request)
+
+        restTemplate.put("${this.hueControllerUrl}/api/${this.hueUser}/${this.hueLightUrl}", request)
     }
 
     @Test
@@ -52,7 +62,7 @@ class GsiApplicationTests {
                 "    \"hue\": 5000,\n" +
                 "    \"transitiontime\": 4\n" +
                 "}"
-        restTemplate.put("http://192.168.1.2/api/BOiEsc0sFNSWan1IAalU9V0b5-08Z8kFPbjBNvbL/lights/1/state", request)
+        restTemplate.put("${this.hueControllerUrl}/api/${this.hueUser}/${this.hueLightUrl}", request)
     }
 
     @Test
@@ -65,7 +75,7 @@ class GsiApplicationTests {
                 "    \"hue\": 46000,\n" +
                 "    \"transitiontime\": 4\n" +
                 "}"
-        restTemplate.put("http://192.168.1.2/api/BOiEsc0sFNSWan1IAalU9V0b5-08Z8kFPbjBNvbL/lights/1/state", request)
+        restTemplate.put("${this.hueControllerUrl}/api/${this.hueUser}/${this.hueLightUrl}", request)
     }
 
 }

@@ -1,17 +1,33 @@
 package com.martige.gsi.service
 
+import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
 import com.martige.gsi.model.GameStateModel
+import com.martige.gsi.model.HueLightParamModel
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.PropertySource
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestTemplate
 
 @Service
+@Configuration
+@PropertySource("classpath:gsi.properties")
 class HueLightServiceImpl : HueLightService {
 
-    //TODO: create properties to set these through args
-    val hueLightUrl = "http://192.168.1.2"
-    val hueUser = "BOiEsc0sFNSWan1IAalU9V0b5-08Z8kFPbjBNvbL"
+    @Value("\${lightservice.hueControllerUrl}")
+    lateinit var hueControllerUrl: String
+    @Value("\${lightservice.hueUser}")
+    lateinit var hueUser: String
+    @Value("\${lightservice.hueLightUrl}")
+    lateinit var hueLightUrl: String
+
+    var lastRoundPhase = lastRoundPhase()
+
+    companion object {
+        fun lastRoundPhase(): String = String()
+    }
 
     override fun updateLighting(gameState: GameStateModel) {
         var roundPhase = "NONE"
@@ -25,11 +41,12 @@ class HueLightServiceImpl : HueLightService {
         if (jsonParser.asJsonObject.has("round") && jsonParser.asJsonObject.getAsJsonObject("round").has("win_team"))
             winTeam = jsonParser.asJsonObject.get("round").asJsonObject.get("win_team").asString
 
-        setLights(roundPhase, winTeam, phaseEndsIn)
+
+        setRoundPhase(roundPhase, winTeam, phaseEndsIn)
 
     }
 
-    private fun setLights(roundPhase: String, winTeam: String, phaseEndsIn: Double) {
+    private fun setRoundPhase(roundPhase: String, winTeam: String, phaseEndsIn: Double) {
         when (RoundPhase.valueOf(roundPhase.toUpperCase())) {
             RoundPhase.WARMUP -> setBlueLights(1)
             RoundPhase.FREEZETIME -> setGreenLights(1)
@@ -39,6 +56,17 @@ class HueLightServiceImpl : HueLightService {
             RoundPhase.OVER -> setOverLights(WinTeam.valueOf(winTeam.toUpperCase()))
             RoundPhase.NONE -> setBlueLights(1)
         }
+        this.lastRoundPhase = roundPhase
+    }
+
+    private fun getLightPutRequest(on: Boolean, saturation: Int, brightness: Int, hue: Int, transitionTime: Int): String {
+        return GsonBuilder().create().toJson(HueLightParamModel(on, saturation, brightness, hue, transitionTime))
+
+    }
+
+    private fun sendRequest(body: String) {
+        val restTemplate = RestTemplate()
+        restTemplate.put("${this.hueControllerUrl}/api/${this.hueUser}/${this.hueLightUrl}", body)
     }
 
     private fun setBombLights(phaseEndsIn: Double) {
@@ -48,91 +76,48 @@ class HueLightServiceImpl : HueLightService {
         }
     }
 
-    private fun sendRequest(body: String) {
-        val restTemplate = RestTemplate()
-        restTemplate.put(this.hueLightUrl + "/api/" + this.hueUser + "/lights/1/state", body)
-    }
+    private fun setDefuseLights(phaseEndsIn: Double) {
+        if (this.lastRoundPhase.toUpperCase() == RoundPhase.DEFUSE.name) {
+            if (phaseEndsIn < 1.0) {
+                setWhiteLights(0)
+                return
+            }
+            return
+        }
 
-    private fun setDefuseLights(phaseEndsIn: Double) = if (phaseEndsIn > 9.0) {
-        setBlueLights(100)
-    } else {
-        setBlueLights(50)
+        if (phaseEndsIn > 10.0 && RoundPhase.valueOf(lastRoundPhase().toUpperCase()) != RoundPhase.DEFUSE) {
+            setBlueLights(100)
+        } else {
+            setBlueLights(50)
+        }
     }
 
     private fun setWhiteLights(transitionTime: Int) {
-        val request = "{\n" +
-                "\t\"on\": true,\n" +
-                "    \"sat\": 0,\n" +
-                "    \"bri\": 254,\n" +
-                "    \"hue\": 10000,\n" +
-                "    \"transitiontime\": " + transitionTime + "\n" +
-                "}"
-        sendRequest(request)
+        sendRequest(getLightPutRequest(true, 0, 254, 10000, transitionTime))
     }
 
     private fun setOverLights(winTeam: WinTeam) {
-        val request: String
-        when (winTeam) {
-            WinTeam.CT -> request = "{\n" +
-                    "\t\"on\": true,\n" +
-                    "    \"sat\": 150,\n" +
-                    "    \"bri\": 252,\n" +
-                    "    \"hue\": 45500,\n" +
-                    "    \"transitiontime\": 1\n" +
-                    "}"
-            else -> request = "{\n" +
-                    "\t\"on\": true,\n" +
-                    "    \"sat\": 100,\n" +
-                    "    \"bri\": 252,\n" +
-                    "    \"hue\": 5000,\n" +
-                    "    \"transitiontime\": 1\n" +
-                    "}"
+        val request: String = when (winTeam) {
+            WinTeam.CT -> getLightPutRequest(true, 252, 45500, 1, 1)
+            else -> getLightPutRequest(true, 100, 252, 5000, 1)
         }
         sendRequest(request)
     }
 
     private fun setBombExplodeLights(transitionTime: Int) {
-        val request: String = "{\n" +
-                "\t\"on\": true,\n" +
-                "    \"sat\": 252,\n" +
-                "    \"bri\": 252,\n" +
-                "    \"hue\": 5000,\n" +
-                "    \"transitiontime\": " + transitionTime + "\n" +
-                "}"
-        sendRequest(request)
+        sendRequest(getLightPutRequest(true, 252, 252, 5000, transitionTime))
     }
 
     private fun setRedLights(transitionTime: Int) {
-        val request: String = "{\n" +
-                "\t\"on\": true,\n" +
-                "    \"sat\": 252,\n" +
-                "    \"bri\": 252,\n" +
-                "    \"hue\": 0,\n" +
-                "    \"transitiontime\": " + transitionTime + "\n" +
-                "}"
-        sendRequest(request)
+        sendRequest(getLightPutRequest(true, 252, 252, 0, transitionTime))
     }
 
     private fun setBlueLights(transitionTime: Int) {
-        val request: String = "{\n" +
-                "\t\"on\": true,\n" +
-                "    \"sat\": 252,\n" +
-                "    \"bri\": 252,\n" +
-                "    \"hue\": 45000,\n" +
-                "    \"transitiontime\": " + transitionTime + "\n" +
-                "}"
-        sendRequest(request)
+        sendRequest(getLightPutRequest(true, 252, 252, 45000, transitionTime))
     }
 
     private fun setGreenLights(transitionTime: Int) {
-        val request: String = "{\n" +
-                "\t\"on\": true,\n" +
-                "    \"sat\": 252,\n" +
-                "    \"bri\": 252,\n" +
-                "    \"hue\": 19000,\n" +
-                "    \"transitiontime\": " + transitionTime + "\n" +
-                "}"
-        sendRequest(request)
+        sendRequest(getLightPutRequest(true, 252, 252, 190000, transitionTime))
     }
 
 }
