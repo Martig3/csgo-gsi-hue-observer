@@ -1,2 +1,2 @@
 # csgo-gsi-hue-observer
-CSGO Game State Integration for Hue Lighting as Observer
+CSGO Observer Game State Integration for Hue Lighting
