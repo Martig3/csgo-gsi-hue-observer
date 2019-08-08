@@ -28,8 +28,8 @@ class GsiController {
 
     @PostMapping("/endpoint", consumes = [MediaType.APPLICATION_JSON_VALUE], produces = [MediaType.TEXT_HTML_VALUE])
     fun gsiEndpoint(@RequestBody gameState: String): String = runBlocking {
-        gameStateRepo.gameState.state = gameState
-        lightService.updateLighting(gameStateRepo.gameState)
+        gameStateRepo.gameStateJson = gameState
+        lightService.updateLighting(gameState)
         return@runBlocking ""
     }
 
@@ -38,6 +38,16 @@ class GsiController {
         val completedFuture = this.gameStateRepo.asyncGameStateLookup()
         CompletableFuture.allOf(completedFuture).join()
         return completedFuture.get()
+    }
+
+    @PutMapping("/set-scoreboard", consumes = [MediaType.APPLICATION_JSON_VALUE])
+    fun setScoreboard(@RequestBody gameState: String) {
+        gameStateRepo.gameStateJson = gameState
+    }
+
+    @GetMapping("/scoreboard-as-string", produces = [MediaType.APPLICATION_JSON_VALUE])
+    fun getScoreboardAsString(): String {
+        return gameStateRepo.gameStateJson
     }
 
 }

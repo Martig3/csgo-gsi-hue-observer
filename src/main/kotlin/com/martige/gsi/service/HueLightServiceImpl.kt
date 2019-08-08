@@ -4,7 +4,6 @@ import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
 import com.martige.gsi.controller.LightJob
-import com.martige.gsi.model.GameStateModel
 import com.martige.gsi.model.HueLightParamModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -34,11 +33,11 @@ class HueLightServiceImpl : HueLightService {
         fun lastRoundPhase(): String = String()
     }
 
-    override suspend fun updateLighting(gameState: GameStateModel) {
+    override suspend fun updateLighting(gameState: String) {
         var roundPhase = "NONE"
         var winTeam = "NONE"
         var phaseEndsIn = 0.0
-        val jsonParser: JsonElement = JsonParser().parse(gameState.state)
+        val jsonParser: JsonElement = JsonParser().parse(gameState)
         if (jsonParser.asJsonObject.has("phase_countdowns")) {
             roundPhase = jsonParser.asJsonObject.get("phase_countdowns").asJsonObject.get("phase").asString
             phaseEndsIn = jsonParser.asJsonObject.get("phase_countdowns").asJsonObject.get("phase_ends_in").asDouble
@@ -81,9 +80,13 @@ class HueLightServiceImpl : HueLightService {
         when {
             LightJob.currentLightJob == null -> startBombLights()
             phaseEndsIn > 1.0 && (!LightJob.currentLightJob!!.isActive) -> startBombLights()
-            phaseEndsIn <= 1.0 -> {
+            phaseEndsIn <= 1.0 && phaseEndsIn > 0.0 -> {
                 LightJob.currentLightJob!!.cancel()
                 setWhiteLights(0)
+            }
+            phaseEndsIn < 0.0 -> {
+                LightJob.currentLightJob!!.cancel()
+                setExplodeLights(0)
             }
         }
     }
@@ -109,10 +112,8 @@ class HueLightServiceImpl : HueLightService {
             return
         }
 
-        if (phaseEndsIn > 10.0 && RoundPhase.valueOf(lastRoundPhase().toUpperCase()) != RoundPhase.DEFUSE) {
-            setBlueLights(100)
-        } else {
-            setBlueLights(50)
+        if (RoundPhase.valueOf(lastRoundPhase().toUpperCase()) != RoundPhase.DEFUSE) {
+            setBlueLights((phaseEndsIn * 10.0).toInt())
         }
     }
 
@@ -122,8 +123,8 @@ class HueLightServiceImpl : HueLightService {
 
     private fun setOverLights(winTeam: WinTeam) {
         val request: String = when (winTeam) {
-            WinTeam.CT -> getLightPutRequest(true, 254, 45500, 1, 1)
-            else -> getLightPutRequest(true, 100, 252, 5000, 1)
+            WinTeam.CT -> getLightPutRequest(true, 150, 254, 45000, 1)
+            else -> getLightPutRequest(true, 150, 254, 5000, 1)
         }
         sendRequest(request)
     }
@@ -142,6 +143,10 @@ class HueLightServiceImpl : HueLightService {
 
     private fun setGreenLights(transitionTime: Int) {
         sendRequest(getLightPutRequest(true, 254, 254, 19000, transitionTime))
+    }
+
+    private fun setExplodeLights(transitionTime: Int) {
+        sendRequest(getLightPutRequest(true, 254, 254, 5000, transitionTime))
     }
 
 }

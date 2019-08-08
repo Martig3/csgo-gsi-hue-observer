@@ -1,5 +1,6 @@
 package com.martige.gsi.model
 
-class GameStateModel {
-    var state: String = ""
-}
+data class GameStateModel (
+        val CurrentMap: CurrentMap,
+        val players: ArrayList<Player>
+)
