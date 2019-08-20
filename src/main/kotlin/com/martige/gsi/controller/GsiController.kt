@@ -7,7 +7,6 @@ import kotlinx.coroutines.runBlocking
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.*
-import java.util.concurrent.CompletableFuture
 
 @RestController
 @RequestMapping("/gsi")
@@ -34,10 +33,8 @@ class GsiController {
     }
 
     @GetMapping("/scoreboard", produces = [MediaType.APPLICATION_JSON_VALUE])
-    fun getScoreboard(): GameStateModel? {
-        val completedFuture = this.gameStateRepo.asyncGameStateLookup()
-        CompletableFuture.allOf(completedFuture).join()
-        return completedFuture.get()
+    fun getScoreboard(): GameStateModel? = runBlocking {
+        return@runBlocking gameStateRepo.gameStateLookup()
     }
 
     @PutMapping("/set-scoreboard", consumes = [MediaType.APPLICATION_JSON_VALUE])

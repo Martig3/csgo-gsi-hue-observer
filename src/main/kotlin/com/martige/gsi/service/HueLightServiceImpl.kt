@@ -34,6 +34,7 @@ class HueLightServiceImpl : HueLightService {
     }
 
     override suspend fun updateLighting(gameState: String) {
+        this.lastRoundPhase = "NONE"
         var roundPhase = "NONE"
         var winTeam = "NONE"
         var phaseEndsIn = 0.0
@@ -50,7 +51,6 @@ class HueLightServiceImpl : HueLightService {
     }
 
     private suspend fun setRoundPhase(roundPhase: String, winTeam: String, phaseEndsIn: Double) {
-
         if (LightJob.currentLightJob != null && (RoundPhase.valueOf(roundPhase.toUpperCase()) != RoundPhase.BOMB))
             LightJob.currentLightJob!!.cancel()
 
@@ -59,9 +59,9 @@ class HueLightServiceImpl : HueLightService {
             RoundPhase.FREEZETIME -> setGreenLights(1)
             RoundPhase.LIVE -> setBlueLights(1)
             RoundPhase.DEFUSE -> setDefuseLights(phaseEndsIn)
+            RoundPhase.BOMB -> setBombLights(phaseEndsIn)
             RoundPhase.OVER -> setOverLights(WinTeam.valueOf(winTeam.toUpperCase()))
             RoundPhase.NONE -> setBlueLights(1)
-            RoundPhase.BOMB -> setBombLights(phaseEndsIn)
         }
         this.lastRoundPhase = roundPhase
     }
@@ -84,7 +84,7 @@ class HueLightServiceImpl : HueLightService {
                 LightJob.currentLightJob!!.cancel()
                 setWhiteLights(0)
             }
-            phaseEndsIn < 0.0 -> {
+            phaseEndsIn <= 0.0 -> {
                 LightJob.currentLightJob!!.cancel()
                 setExplodeLights(0)
             }
@@ -105,14 +105,20 @@ class HueLightServiceImpl : HueLightService {
 
     private suspend fun setDefuseLights(phaseEndsIn: Double) {
         if (this.lastRoundPhase.toUpperCase() == RoundPhase.DEFUSE.name) {
-            if (phaseEndsIn < 1.0) {
-                setWhiteLights(0)
-                return
+            when {
+                phaseEndsIn < 1.0 -> {
+                    setWhiteLights(0)
+                    return
+                }
+                phaseEndsIn < 0.0 -> {
+                    setExplodeLights(0)
+                    setRedLights(10)
+                }
+                else -> return
             }
-            return
         }
 
-        if (RoundPhase.valueOf(lastRoundPhase().toUpperCase()) != RoundPhase.DEFUSE) {
+        if (RoundPhase.valueOf(this.lastRoundPhase.toUpperCase()) != RoundPhase.DEFUSE) {
             setBlueLights((phaseEndsIn * 10.0).toInt())
         }
     }
@@ -123,8 +129,8 @@ class HueLightServiceImpl : HueLightService {
 
     private fun setOverLights(winTeam: WinTeam) {
         val request: String = when (winTeam) {
-            WinTeam.CT -> getLightPutRequest(true, 150, 254, 45000, 1)
-            else -> getLightPutRequest(true, 150, 254, 5000, 1)
+            WinTeam.CT -> getLightPutRequest(true, 180, 254, 45000, 1)
+            else -> getLightPutRequest(true, 180, 254, 5000, 1)
         }
         sendRequest(request)
     }

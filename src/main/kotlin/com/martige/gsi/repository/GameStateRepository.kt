@@ -7,9 +7,9 @@ import com.google.gson.JsonParser
 import com.martige.gsi.model.CurrentMap
 import com.martige.gsi.model.GameStateModel
 import com.martige.gsi.model.Player
-import org.springframework.scheduling.annotation.Async
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.async
 import org.springframework.stereotype.Repository
-import java.util.concurrent.CompletableFuture
 
 @Repository
 class GameStateRepository {
@@ -20,14 +20,17 @@ class GameStateRepository {
         fun gameStateJson(): String = String()
     }
 
-    @Async("asyncExecutor")
-    fun asyncGameStateLookup(): CompletableFuture<GameStateModel> {
+    suspend fun gameStateLookup(): GameStateModel {
         val jsonParser: JsonElement = JsonParser().parse(gameStateJson)
-        val map: CurrentMap = Gson().fromJson(jsonParser.asJsonObject.getAsJsonObject("map"), CurrentMap::class.java)
-        val allPlayers  = (jsonParser.asJsonObject.get("allplayers") ?: JsonObject())
-        val players: ArrayList<Player> = ArrayList()
-        allPlayers.asJsonObject.entrySet().mapTo(players) { Gson().fromJson(it.value, Player::class.java) }
-
-        return CompletableFuture.completedFuture(GameStateModel(map, players))
+        val map = GlobalScope.async {
+            Gson().fromJson(jsonParser.asJsonObject.getAsJsonObject("map"), CurrentMap::class.java)
+        }
+        val players = GlobalScope.async {
+            val allPlayers = (jsonParser.asJsonObject.get("allplayers") ?: JsonObject())
+            val players = ArrayList<Player>()
+            allPlayers.asJsonObject.entrySet().mapTo(players) { Gson().fromJson(it.value, Player::class.java) }
+        }
+        return (GameStateModel(map.await(), players.await()))
     }
+
 }
