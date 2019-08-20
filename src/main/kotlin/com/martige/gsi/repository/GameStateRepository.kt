@@ -22,15 +22,16 @@ class GameStateRepository {
 
     suspend fun gameStateLookup(): GameStateModel {
         val jsonParser: JsonElement = JsonParser().parse(gameStateJson)
-        val map = GlobalScope.async {
-            Gson().fromJson(jsonParser.asJsonObject.getAsJsonObject("map"), CurrentMap::class.java)
+        val currentMap = GlobalScope.async {
+            val map = jsonParser.asJsonObject.get("map") ?: JsonObject()
+            Gson().fromJson(map.asJsonObject, CurrentMap::class.java)
         }
         val players = GlobalScope.async {
             val allPlayers = (jsonParser.asJsonObject.get("allplayers") ?: JsonObject())
             val players = ArrayList<Player>()
             allPlayers.asJsonObject.entrySet().mapTo(players) { Gson().fromJson(it.value, Player::class.java) }
         }
-        return (GameStateModel(map.await(), players.await()))
+        return (GameStateModel(currentMap.await(), players.await()))
     }
 
 }
